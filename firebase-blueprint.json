@@ -1,0 +1,170 @@
+{
+  "entities": {
+    "AuthorizedUser": {
+      "title": "AuthorizedUser",
+      "description": "A school member authorized by the administrator to participate in the lockout activity and access group forms.",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "description": "School email address of the user.",
+          "pattern": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+        },
+        "name": {
+          "type": "string",
+          "description": "Display name of the user.",
+          "maxLength": 100
+        },
+        "groupName": {
+          "type": "string",
+          "description": "The group or cohort the user belongs to.",
+          "maxLength": 100
+        },
+        "role": {
+          "type": "string",
+          "description": "Role of the user (admin or member).",
+          "enum": ["admin", "member"]
+        },
+        "status": {
+          "type": "string",
+          "description": "Verification status determined by administrator.",
+          "enum": ["verified", "pending", "revoked"]
+        },
+        "addedAt": {
+          "type": "string",
+          "description": "ISO timestamp when the user was added."
+        },
+        "verifiedAt": {
+          "type": "string",
+          "description": "ISO timestamp when the user was verified."
+        }
+      },
+      "required": ["email", "role", "status", "groupName"]
+    },
+    "TaskSubmission": {
+      "title": "TaskSubmission",
+      "description": "A completed or in-progress single submission for one of the 16 bingo tasks.",
+      "type": "object",
+      "properties": {
+        "taskId": {
+          "type": "string",
+          "description": "Identifier of the task (e.g., space-reset).",
+          "maxLength": 64
+        },
+        "taskTitle": {
+          "type": "string",
+          "description": "Human-readable title of the task.",
+          "maxLength": 128
+        },
+        "category": {
+          "type": "string",
+          "description": "One of the 4 pillar categories.",
+          "enum": ["Hospitality & Space", "Pacing & Silence", "Language & Metaphor", "Attentiveness"]
+        },
+        "groupName": {
+          "type": "string",
+          "description": "Group name that submitted the task.",
+          "maxLength": 100
+        },
+        "userEmail": {
+          "type": "string",
+          "description": "School email of the submitter.",
+          "pattern": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+        },
+        "responseSummary": {
+          "type": "string",
+          "description": "Summary or reflection submitted via Google Form.",
+          "maxLength": 2000
+        },
+        "status": {
+          "type": "string",
+          "description": "Status of the task tile.",
+          "enum": ["in_progress", "completed"]
+        },
+        "submittedAt": {
+          "type": "string",
+          "description": "ISO timestamp of form submission."
+        },
+        "formResponseId": {
+          "type": "string",
+          "description": "Unique Google Form response ID if available.",
+          "maxLength": 128
+        }
+      },
+      "required": ["taskId", "taskTitle", "category", "groupName", "userEmail", "status"]
+    },
+    "Group": {
+      "title": "Group",
+      "description": "A group or PLC working together through the 16 tasks.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Unique group name.",
+          "maxLength": 100
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of the group or department.",
+          "maxLength": 300
+        },
+        "completedTasks": {
+          "type": "string",
+          "description": "Comma-separated list or count of completed tasks.",
+          "maxLength": 1000
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "ISO timestamp of last update."
+        }
+      },
+      "required": ["name"]
+    },
+    "AppSettings": {
+      "title": "AppSettings",
+      "description": "Global configuration for the Lockout Tracker Workspace integration.",
+      "type": "object",
+      "properties": {
+        "adminEmail": {
+          "type": "string",
+          "description": "Primary administrator school email.",
+          "maxLength": 128
+        },
+        "schoolDomain": {
+          "type": "string",
+          "description": "Allowed school email domain (e.g. ma.org.tw).",
+          "maxLength": 128
+        },
+        "targetDocOrSheetId": {
+          "type": "string",
+          "description": "ID or URL of the central Google Sheet or Doc.",
+          "maxLength": 256
+        },
+        "appsScriptUrl": {
+          "type": "string",
+          "description": "Published Google Apps Script Web App URL.",
+          "maxLength": 512
+        }
+      },
+      "required": ["adminEmail"]
+    }
+  },
+  "firestore": {
+    "/authorized_users/{userId}": {
+      "schema": "AuthorizedUser",
+      "description": "List of authorized school users with verification status and group assignments."
+    },
+    "/task_submissions/{submissionId}": {
+      "schema": "TaskSubmission",
+      "description": "Centralized form submissions and lockout states for the 16 tasks."
+    },
+    "/groups/{groupId}": {
+      "schema": "Group",
+      "description": "Registered groups participating in the bingo activity."
+    },
+    "/settings/{settingId}": {
+      "schema": "AppSettings",
+      "description": "Administrator configuration and Workspace target document settings."
+    }
+  }
+}

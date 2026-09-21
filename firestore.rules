@@ -1,0 +1,114 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default Deny All
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-\\.]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isMasterAdmin() {
+      return isEmailVerified() && (
+        request.auth.token.email == 'kris.knutson@ma.org.tw' ||
+        (exists(/databases/$(database)/documents/authorized_users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/authorized_users/$(request.auth.uid)).data.role == 'admin' &&
+         get(/databases/$(database)/documents/authorized_users/$(request.auth.uid)).data.status == 'verified')
+      );
+    }
+
+    function isVerifiedUser() {
+      return isEmailVerified() && (
+        isMasterAdmin() ||
+        (exists(/databases/$(database)/documents/authorized_users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/authorized_users/$(request.auth.uid)).data.status == 'verified')
+      );
+    }
+
+    function isValidAuthorizedUser(data) {
+      return data.email is string && data.email.size() <= 128 &&
+             data.role in ['admin', 'member'] &&
+             data.status in ['verified', 'pending', 'revoked'] &&
+             data.groupName is string && data.groupName.size() <= 100 &&
+             (!('name' in data) || (data.name is string && data.name.size() <= 100));
+    }
+
+    function isValidSubmission(data) {
+      return data.taskId is string && data.taskId.size() <= 64 &&
+             data.taskTitle is string && data.taskTitle.size() <= 128 &&
+             data.category in ['Hospitality & Space', 'Pacing & Silence', 'Language & Metaphor', 'Attentiveness'] &&
+             data.groupName is string && data.groupName.size() <= 100 &&
+             data.userEmail is string && data.userEmail.size() <= 128 &&
+             data.status in ['in_progress', 'completed'] &&
+             (!('responseSummary' in data) || (data.responseSummary is string && data.responseSummary.size() <= 2000)) &&
+             (!('formResponseId' in data) || (data.formResponseId is string && data.formResponseId.size() <= 128));
+    }
+
+    function isValidGroup(data) {
+      return data.name is string && data.name.size() <= 100 &&
+             (!('description' in data) || (data.description is string && data.description.size() <= 300));
+    }
+
+    function isValidSettings(data) {
+      return data.adminEmail is string && data.adminEmail.size() <= 128 &&
+             (!('schoolDomain' in data) || (data.schoolDomain is string && data.schoolDomain.size() <= 128)) &&
+             (!('targetDocOrSheetId' in data) || (data.targetDocOrSheetId is string && data.targetDocOrSheetId.size() <= 256)) &&
+             (!('appsScriptUrl' in data) || (data.appsScriptUrl is string && data.appsScriptUrl.size() <= 512));
+    }
+
+    // Authorized Users Collection
+    match /authorized_users/{userId} {
+      allow get: if isValidId(userId) && (isMasterAdmin() || (isSignedIn() && request.auth.uid == userId));
+      allow list: if isMasterAdmin() || (isSignedIn() && resource.data.email == request.auth.token.email);
+      allow create: if isValidId(userId) && isMasterAdmin() && isValidAuthorizedUser(incoming());
+      allow update: if isValidId(userId) && isMasterAdmin() && isValidAuthorizedUser(incoming());
+      allow delete: if isValidId(userId) && isMasterAdmin();
+    }
+
+    // Task Submissions Collection
+    match /task_submissions/{submissionId} {
+      allow get, list: if isValidId(submissionId) && isVerifiedUser();
+      allow create: if isValidId(submissionId) && isVerifiedUser() && isValidSubmission(incoming()) &&
+                    (incoming().userEmail == request.auth.token.email || isMasterAdmin());
+      allow update: if isValidId(submissionId) && isValidSubmission(incoming()) && (
+        isMasterAdmin() ||
+        (isVerifiedUser() &&
+         existing().status != 'completed' && // Lockout: cannot modify completed submissions!
+         incoming().diff(existing()).affectedKeys().hasOnly(['status', 'responseSummary', 'formResponseId']) &&
+         existing().userEmail == request.auth.token.email)
+      );
+      allow delete: if isValidId(submissionId) && isMasterAdmin();
+    }
+
+    // Groups Collection
+    match /groups/{groupId} {
+      allow get, list: if isValidId(groupId) && (isSignedIn() || isVerifiedUser());
+      allow create, update, delete: if isValidId(groupId) && isMasterAdmin() && (request.method == 'delete' || isValidGroup(incoming()));
+    }
+
+    // Settings Collection
+    match /settings/{settingId} {
+      allow get: if isValidId(settingId) && isSignedIn();
+      allow list: if isMasterAdmin();
+      allow create, update, delete: if isValidId(settingId) && isMasterAdmin() && (request.method == 'delete' || isValidSettings(incoming()));
+    }
+  }
+}

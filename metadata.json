@@ -1,0 +1,7 @@
+{
+  "name": "Semester Lockout Tracker",
+  "description": "A 16-task master lockout tracker and authorized user permission manager for pedagogical formation activities, integrated with Google Workspace (Drive, Slides, Forms & Sheets) and Firebase.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
